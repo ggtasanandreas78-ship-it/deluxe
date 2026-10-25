@@ -1,4 +1,4 @@
-name: Build DELUXE PS4 PKG
+name: DELUXE - Diagnose OpenOrbis
 
 on:
   workflow_dispatch:
@@ -9,34 +9,38 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  diagnose:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Show project files
+      - name: Inspect project
         run: |
-          echo "Checking project structure"
-          ls -la
-          test -f Makefile
+          echo "=== Project files ==="
+          find . -maxdepth 3 -type f | sort
+          echo "=== Makefile ==="
+          cat Makefile
 
-      - name: Build with official OpenOrbis toolchain
+      - name: Inspect OpenOrbis toolchain
         run: |
           git clone --depth 1 --branch v0.5.4 \
             https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git \
             "$RUNNER_TEMP/OpenOrbis-PS4-Toolchain"
-          echo "Toolchain source downloaded."
-          echo "A project-specific build setup is still required."
+          echo "=== Available build tools ==="
+          find "$RUNNER_TEMP/OpenOrbis-PS4-Toolchain" \
+            -type f \( -name 'clang' -o -name 'create-fself' \
+            -o -name 'create-gp4' -o -name 'PkgTool.Core' \) -print
+          echo "=== Toolchain README ==="
+          sed -n '1,180p' \
+            "$RUNNER_TEMP/OpenOrbis-PS4-Toolchain/README.md" || true
 
       - name: Save diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: DELUXE-build-diagnostics
+          name: DELUXE-toolchain-diagnostics
           path: |
             Makefile
             src/
             sce_sys/
-            .github/workflows/build.yml
           if-no-files-found: ignore
