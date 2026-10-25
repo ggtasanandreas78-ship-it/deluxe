@@ -36,14 +36,14 @@ jobs:
       - name: Download OpenOrbis toolchain (latest release)
         run: |
           set -e
-          gh release view --repo OpenOrbis/OpenOrbis-PS4-Toolchain --json tagName,assets \
+          gh release view --repo OpenOrbis/PS4Toolchain-PS4-Toolchain --json tagName,assets \
             --jq '.tagName, (.assets[].name)'
           # pick the first non-Windows/macOS archive; adjust the pattern if the asset names change
-          ASSET=$(gh release view --repo OpenOrbis/OpenOrbis-PS4-Toolchain --json assets \
+          ASSET=$(gh release view --repo OpenOrbis/PS4Toolchain-PS4-Toolchain --json assets \
             --jq '[.assets[].name | select(test("(?i)(tar\\.gz|tgz|zip)$")) | select(test("(?i)win|mac|osx|docker")|not)][0]')
           test -n "$ASSET" && test "$ASSET" != "null" || { echo "::error::no suitable toolchain asset found (see list above)"; exit 1; }
           echo "Using asset: $ASSET"
-          gh release download --repo OpenOrbis/OpenOrbis-PS4-Toolchain --pattern "$ASSET" --dir /tmp/oo
+          gh release download --repo OpenOrbis/PS4Toolchain-PS4-Toolchain --pattern "$ASSET" --dir /tmp/oo
           mkdir -p "$HOME/OpenOrbis" && cd "$HOME/OpenOrbis"
           case "$ASSET" in *.zip) unzip -q "/tmp/oo/$ASSET" ;; *) tar -xzf "/tmp/oo/$ASSET" ;; esac
           TC=$(dirname "$(find "$HOME/OpenOrbis" -name link.x -path '*' | head -n1)")
