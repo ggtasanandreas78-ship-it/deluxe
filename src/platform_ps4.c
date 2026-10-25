@@ -27,7 +27,7 @@ int plat_init(void) {
     sceUserServiceInitialize(NULL);
     sceUserServiceGetInitialUser(&uid);
 
-    video = sceVideoOutOpen(ORBIS_USER_SERVICE_USER_ID_SYSTEM, ORBIS_VIDEO_OUT_BUS_TYPE_MAIN, 0, NULL);
+    video = sceVideoOutOpen(ORBIS_USER_SERVICE_USER_ID_SYSTEM, ORBIS_VIDEO_OUT_BUS_MAIN, 0, NULL);
     if (video < 0) return -1;
     size_t sz = (size_t)SCREEN_W * SCREEN_H * 4, aligned = (sz + 0x1fffff) & ~(size_t)0x1fffff;
     off_t phys; void *base = NULL;
@@ -35,7 +35,7 @@ int plat_init(void) {
     if (sceKernelMapDirectMemory(&base, aligned * NUM_FB, 0x33, 0, phys, 0x200000)) return -3;
     for (int i = 0; i < NUM_FB; i++) fb_mem[i] = (char *)base + aligned * (size_t)i;
 
-    sceVideoOutSetBufferAttribute(&attr, ORBIS_VIDEO_OUT_PIXEL_FORMAT_B8_G8_R8_A8_SRGB,
+    sceVideoOutSetBufferAttribute(&attr, ORBIS_VIDEO_OUT_PIXEL_FORMAT_A8B8G8R8_SRGB,
                                   ORBIS_VIDEO_OUT_TILING_MODE_LINEAR, ORBIS_VIDEO_OUT_ASPECT_RATIO_16_9,
                                   SCREEN_W, SCREEN_H, SCREEN_W);
     if (sceVideoOutRegisterBuffers(video, 0, fb_mem, NUM_FB, &attr)) return -4;
@@ -61,7 +61,7 @@ fb_t *plat_backbuffer(void) { return &back; }
 void plat_flip(void) {
     uint32_t *dst = fb_mem[cur];
     for (size_t i = 0, n = (size_t)SCREEN_W * SCREEN_H; i < n; i++) dst[i] = back.px[i] | 0xFF000000u;
-    sceVideoOutSubmitFlip(video, cur, ORBIS_VIDEO_OUT_FLIP_MODE_VSYNC, 0);
+    sceVideoOutSubmitFlip(video, cur, ORBIS_VIDEO_OUT_FLIP_VSYNC, 0);
     OrbisKernelEvent ev; int cnt; OrbisKernelUseconds to = 100000;
     sceKernelWaitEqueue(flip_eq, &ev, 1, &cnt, &to);
     cur = (cur + 1) % NUM_FB;
