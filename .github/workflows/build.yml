@@ -58,16 +58,12 @@ jobs:
       - name: Inspect package tools
         shell: bash
         run: |
-          set -euxo pipefail
+          set -eu
           SDK="$OO_PS4_TOOLCHAIN"
-          echo "=== Available package tools ==="
-          find "$SDK" -type f \\
-            \( -iname '*pkg*' -o -iname '*sfo*' -o -iname '*eboot*' \) \\
-            -print | sort
-          echo "=== SDK packaging files ==="
-          find "$SDK" -maxdepth 3 -type f \\
-            \( -iname '*README*' -o -iname '*.dll' -o -iname '*.jar' \) \\
-            -print | sort | head -100
+          echo "=== Package tools ==="
+          find "$SDK/bin/linux" -maxdepth 1 -type f -printf '%f\\n' | sort
+          echo "=== SFO and package tools ==="
+          find "$SDK" -type f | grep -Ei '/(.*(pkg|sfo|gp4|fself).*)$' | head -40 || true
 
       - name: Validate build setup
         run: |
