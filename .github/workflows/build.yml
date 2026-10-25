@@ -55,6 +55,20 @@ jobs:
           echo "=== SFO / GP4 tools ==="
           find "$SDK/bin/linux" -maxdepth 1 -type f -printf '%f\\n' | sort
 
+      - name: Inspect package tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SDK="$OO_PS4_TOOLCHAIN"
+          echo "=== Available package tools ==="
+          find "$SDK" -type f \\
+            \( -iname '*pkg*' -o -iname '*sfo*' -o -iname '*eboot*' \) \\
+            -print | sort
+          echo "=== SDK packaging files ==="
+          find "$SDK" -maxdepth 3 -type f \\
+            \( -iname '*README*' -o -iname '*.dll' -o -iname '*.jar' \) \\
+            -print | sort | head -100
+
       - name: Validate build setup
         run: |
           set -euxo pipefail
