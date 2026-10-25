@@ -1,41 +1,50 @@
-TITLE := DELUXE PKG MANAGER
-TITLE_ID := DLXE00001
+# DELUXE PKG MANAGER - PS4 homebrew (OpenOrbis)
+#   make            build + validate the PKG   (needs OO_PS4_TOOLCHAIN, clang, ld.lld)
+#   make test       host unit/integration tests (clang + python3 only, no PS4 toolchain)
+#   make clean
+TITLE      := DELUXE PKG MANAGER
+TITLE_ID   := DLXE00001
 CONTENT_ID := IV0000-DLXE00001_00-DELUXEPKGMANAGER
-VERSION := 01.00
-BUILD := build
-TARGET := $(CONTENT_ID).pkg
+VERSION    := 01.00
+BUILD      := build
+PKG        := $(CONTENT_ID).pkg
 
-OO_PS4_TOOLCHAIN ?= /opt/OpenOrbis/PS4Toolchain
-CC := clang
-PKGTOOL := $(OO_PS4_TOOLCHAIN)/bin/linux/PkgTool.Core
-FSELF := $(OO_PS4_TOOLCHAIN)/bin/linux/create-fself
-GP4 := $(OO_PS4_TOOLCHAIN)/bin/linux/create-gp4
+TC     := $(OO_PS4_TOOLCHAIN)
+BIN    := $(TC)/bin/linux
+PKGTOOL := $(BIN)/PkgTool.Core
+FSELF   := $(BIN)/create-fself
+GP4     := $(BIN)/create-gp4
 
-CFLAGS := --target=x86_64-scei-ps4 -fPIC -DPS4 -O2 -Wall -Wextra -fno-stack-protector -I$(OO_PS4_TOOLCHAIN)/include
-LDFLAGS := -Wl,-pie -Wl,--script=$(OO_PS4_TOOLCHAIN)/link.x -L$(OO_PS4_TOOLCHAIN)/lib
-LIBS := -lkernel -lc -lSceFios2 -lSceLibcInternal
+CC      := clang
+SRCS    := src/main.c src/ui.c src/gfx.c src/ftp.c src/config.c src/localfs.c src/platform_ps4.c src/platform_common.c
+OBJS    := $(SRCS:src/%.c=$(BUILD)/%.o)
+CFLAGS  := --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -O2 -Wall -Wextra -DPS4 -Isrc \
+           -isysroot $(TC) -isystem $(TC)/include
+LDFLAGS := -m elf_x86_64 -pie --script $(TC)/link.x --eh-frame-hdr -L$(TC)/lib
+LIBS    := -lc -lkernel -lSceVideoOut -lScePad -lSceUserService -lSceSysmodule -lSceNet
 
-.PHONY: all clean check-tools
-all: check-tools $(TARGET)
+.PHONY: all clean test check-tools
+all: check-tools $(PKG)
 
 check-tools:
-	@test -n "$(OO_PS4_TOOLCHAIN)" || (echo "OO_PS4_TOOLCHAIN missing"; exit 1)
-	@command -v $(CC) >/dev/null || (echo "clang missing"; exit 1)
-	@test -x "$(PKGTOOL)" || (echo "PkgTool.Core missing"; exit 1)
-	@test -x "$(FSELF)" || (echo "create-fself missing"; exit 1)
-	@test -x "$(GP4)" || (echo "create-gp4 missing"; exit 1)
-	@mkdir -p $(BUILD) sce_sys
+	@test -n "$(TC)" || { echo "error: OO_PS4_TOOLCHAIN is not set"; exit 1; }
+	@command -v $(CC) >/dev/null   || { echo "error: clang not found"; exit 1; }
+	@command -v ld.lld >/dev/null  || { echo "error: ld.lld not found"; exit 1; }
+	@for t in "$(PKGTOOL)" "$(FSELF)" "$(GP4)"; do test -x "$$t" || { echo "error: missing/non-executable $$t"; exit 1; }; done
 
-$(BUILD)/main.o: src/main.c | check-tools
+$(BUILD)/%.o: src/%.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD)/eboot.elf: $(BUILD)/main.o
-	ld.lld -m elf_x86_64 -pie --script="$(OO_PS4_TOOLCHAIN)/link.x" --eh-frame-hdr -L"$(OO_PS4_TOOLCHAIN)/lib" -o "$@" "$(OO_PS4_TOOLCHAIN)/lib/crt1.o" $(BUILD)/main.o $(LIBS)
+$(BUILD):
+	mkdir -p $(BUILD)
 
-eboot.bin: $(BUILD)/eboot.elf
-	$(FSELF) -in $< -out $@ -eboot $@ -ptype fake
+$(BUILD)/deluxe.elf: $(OBJS)
+	ld.lld $(LDFLAGS) $(TC)/lib/crt1.o $(OBJS) $(LIBS) -o $@
 
-sce_sys/param.sfo: Makefile | check-tools
+eboot.bin: $(BUILD)/deluxe.elf
+	$(FSELF) -in $< --out $(BUILD)/deluxe.oelf --eboot eboot.bin --paid 0x3800000000000011
+
+sce_sys/param.sfo: Makefile
 	$(PKGTOOL) sfo_new $@
 	$(PKGTOOL) sfo_setentry $@ APP_TYPE --type Integer --maxsize 4 --value 1
 	$(PKGTOOL) sfo_setentry $@ APP_VER --type Utf8 --maxsize 8 --value "$(VERSION)"
@@ -49,12 +58,15 @@ sce_sys/param.sfo: Makefile | check-tools
 	$(PKGTOOL) sfo_setentry $@ VERSION --type Utf8 --maxsize 8 --value "$(VERSION)"
 
 pkg.gp4: eboot.bin sce_sys/param.sfo sce_sys/icon0.png
-	$(GP4) -out=pkg.gp4 -content-id=$(CONTENT_ID) -files "eboot.bin sce_sys/param.sfo sce_sys/icon0.png"
+	$(GP4) -out pkg.gp4 --content-id=$(CONTENT_ID) --files "eboot.bin sce_sys/param.sfo sce_sys/icon0.png"
 
-$(TARGET): pkg.gp4
+$(PKG): pkg.gp4
 	$(PKGTOOL) pkg_build pkg.gp4 .
-	test -f "$(TARGET)"
-	$(PKGTOOL) pkg_validate --verbose "$(TARGET)"
+	test -s "$(PKG)"
+	$(PKGTOOL) pkg_validate "$(PKG)"
+
+test:
+	tests/run_tests.sh
 
 clean:
-	rm -rf $(BUILD) eboot.bin pkg.gp4 sce_sys/param.sfo $(TARGET)
+	rm -rf $(BUILD) eboot.bin pkg.gp4 sce_sys/param.sfo $(PKG)
