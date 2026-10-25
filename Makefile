@@ -30,7 +30,7 @@ $(BUILD)/main.o: src/main.c | check-tools
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/eboot.elf: $(BUILD)/main.o
-	ld.lld -m elf_x86_64 -pie --script="$(OO_PS4_TOOLCHAIN)/link.x" --eh-frame-hdr -L"$(OO_PS4_TOOLCHAIN)/lib" -o "$@" "$(OO_PS4_TOOLCHAIN)/lib/crtlib.o" $(BUILD)/main.o $(LIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o "$@" $(BUILD)/main.o $(LIBS)
 
 eboot.bin: $(BUILD)/eboot.elf
 	$(FSELF) -in $< -out $@ -eboot $@ -ptype fake

@@ -69,6 +69,15 @@ jobs:
           echo "=== create-gp4 help ==="
           "$SDK/bin/linux/create-gp4" --help || true
 
+      - name: Inspect PS4 linker files
+        shell: bash
+        run: |
+          set -euxo pipefail
+          find "$OO_PS4_TOOLCHAIN" -maxdepth 4 -type f \
+            \( -name 'crtlib.o' -o -name 'crt*.o' -o -name 'link.x' -o -name '*start*.o' \) \
+            -print
+          grep -R -n 'crtlib.o\\|crt2.o\\|Scrt1.o' "$OO_PS4_TOOLCHAIN/samples" --include='Makefile' --include='*.mk' 2>/dev/null || true
+
       - name: Build PS4 PKG
         shell: bash
         run: |
