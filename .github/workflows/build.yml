@@ -55,6 +55,17 @@ jobs:
           echo "OO_PS4_TOOLCHAIN=$TC" >> "$GITHUB_ENV"
           echo "Using toolchain: $TC"
 
+      - name: Diagnose OpenOrbis headers
+        shell: bash
+        run: |
+          set -e
+          echo "===== Toolchain ====="
+          echo "$OO_PS4_TOOLCHAIN"
+          echo "===== IPv4 and socket definitions ====="
+          grep -R -n -E 'SockaddrIn|Sockaddr.*In|SOL_SOCKET|SO_SNDTIMEO|SO_RCVTIMEO|OrbisNetSockaddr|OrbisNetInAddr' "$OO_PS4_TOOLCHAIN/include/orbis" | head -100 || true
+          echo "===== Notification definitions ====="
+          grep -R -n -E 'OrbisNotificationRequest|sceKernelSendNotificationRequest' "$OO_PS4_TOOLCHAIN/include/orbis" | head -60 || true
+
       - name: Build + validate PKG
         run: make
       - name: Verify PKG file
