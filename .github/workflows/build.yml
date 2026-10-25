@@ -55,15 +55,19 @@ jobs:
           echo "=== SFO / GP4 tools ==="
           find "$SDK/bin/linux" -maxdepth 1 -type f -printf '%f\\n' | sort
 
-      - name: Inspect package tools
+      - name: Inspect working SDK examples
         shell: bash
         run: |
           set -eu
           SDK="$OO_PS4_TOOLCHAIN"
-          echo "=== Package tools ==="
-          find "$SDK/bin/linux" -maxdepth 1 -type f -printf '%f\\n' | sort
-          echo "=== SFO and package tools ==="
-          find "$SDK" -type f | grep -Ei '/(.*(pkg|sfo|gp4|fself).*)$' | head -40 || true
+          echo "=== GP4 examples ==="
+          find "$SDK/samples" -name 'pkg.gp4' -print
+          echo "=== SFO examples ==="
+          find "$SDK/samples" -path '*/sce_sys/param.sfo' -print
+          echo "=== PkgTool help ==="
+          "$SDK/bin/linux/PkgTool.Core" --help || true
+          echo "=== create-gp4 help ==="
+          "$SDK/bin/linux/create-gp4" --help || true
 
       - name: Validate build setup
         run: |
