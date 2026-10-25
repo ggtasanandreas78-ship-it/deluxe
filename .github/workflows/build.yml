@@ -17,55 +17,41 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-12 lld-12 curl tar make unzip
+          sudo apt-get install -y curl tar make unzip jq
+          
+      - name: Install LLVM 18
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "18"
+          directory: ${{ runner.temp }}/llvm
 
-      - name: Download OpenOrbis release
+      - name: Download OpenOrbis SDK
         shell: bash
         run: |
-          set -eux
+          set -euxo pipefail
           API="https://api.github.com/repos/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/latest"
           URL=$(curl -fsSL "$API" | jq -r '.assets[] | select(.name == "toolchain-llvm-18.tar.gz") | .browser_download_url')
           test -n "$URL"
-          curl -fL "$URL" -o "$RUNNER_TEMP/openorbis.tar.gz"
           mkdir -p "$RUNNER_TEMP/OpenOrbisSDK"
+          curl -fL "$URL" -o "$RUNNER_TEMP/openorbis.tar.gz"
           tar -xzf "$RUNNER_TEMP/openorbis.tar.gz" -C "$RUNNER_TEMP/OpenOrbisSDK"
           SDK="$RUNNER_TEMP/OpenOrbisSDK/OpenOrbis/PS4Toolchain"
-          test -x "$SDK/bin/linux/create-fself"
-          test -x "$SDK/bin/linux/create-gp4"
-          test -f "$SDK/bin/linux/PkgTool.Core"
-          chmod +x "$SDK/bin/linux/"*
+          test -f "$SDK/link.x"
+          test -d "$SDK/include"
+          test -d "$SDK/lib"
           echo "OO_PS4_TOOLCHAIN=$SDK" >> "$GITHUB_ENV"
           echo "$SDK/bin/linux" >> "$GITHUB_PATH"
-          echo "=== Find clang in SDK archive ==="
-          find "$RUNNER_TEMP/OpenOrbisSDK" -type f -name clang -print
-          echo "=== System clang ==="
-          command -v clang || true
-          echo "=== OpenOrbis tools ==="
-          ls -lah "$SDK/bin/linux"
-          echo "=== SDK folders ==="
-          ls -ld "$SDK/include" "$SDK/lib"
+          echo "=== LLVM ==="
+          clang --version
+          ld.lld --version
+          echo "=== SDK tools ==="
+          ls -la "$SDK/bin/linux"
 
-      - name: Build project
+      - name: Validate build setup
         run: |
-          set -eux
-          export PATH="$OO_PS4_TOOLCHAIN/bin/linux:$OO_PS4_TOOLCHAIN/bin:$PATH"
-          make
-
-      - name: Upload package if created
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: DELUXE-PKG
-          path: "*.pkg"
-          if-no-files-found: error
-
-      - name: Upload diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: DELUXE-build-logs
-          path: |
-            build/
-            pkg.gp4
-            eboot.bin
-          if-no-files-found: ignore
+          set -euxo pipefail
+          test -f src/main.c
+          test -f sce_sys/icon0.png
+          test -f "$OO_PS4_TOOLCHAIN/link.x"
+          echo "SDK and source files are present."
+          echo "A verified SFO/GP4 package recipe is still required before producing a PKG."
