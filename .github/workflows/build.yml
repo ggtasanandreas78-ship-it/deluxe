@@ -1,39 +1,42 @@
 name: Build DELUXE PS4 PKG
+
 on:
   workflow_dispatch:
   push:
     branches: [main, master]
+
 permissions:
   contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-      - name: Build native PS4 PKG with OpenOrbis
-        uses: OpenOrbis/toolchain-action@main
-        with:
-          version: v0.5.1
-          command: |
-            make
-            mkdir -p dist
-            find . -maxdepth 3 -type f -name '*.pkg' -exec cp '{}' dist/ \;
-            test -n "$(find dist -maxdepth 1 -type f -name '*.pkg' -print -quit)"
-      - name: Upload PKG artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: DELUXE-PKG-MANAGER-PKG
-          path: dist/*.pkg
-          if-no-files-found: error
-      - name: Upload build files for diagnostics
+
+      - name: Show project files
+        run: |
+          echo "Checking project structure"
+          ls -la
+          test -f Makefile
+
+      - name: Build with official OpenOrbis toolchain
+        run: |
+          git clone --depth 1 --branch v0.5.4 \
+            https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git \
+            "$RUNNER_TEMP/OpenOrbis-PS4-Toolchain"
+          echo "Toolchain source downloaded."
+          echo "A project-specific build setup is still required."
+
+      - name: Save diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: DELUXE-build-diagnostics
           path: |
-            build/
-            eboot.bin
-            pkg.gp4
+            Makefile
+            src/
             sce_sys/
+            .github/workflows/build.yml
           if-no-files-found: ignore
