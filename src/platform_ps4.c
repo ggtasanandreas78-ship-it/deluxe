@@ -88,11 +88,10 @@ uint64_t plat_ms(void) { return sceKernelGetProcessTime() / 1000; }
 void plat_sleep_ms(int ms) { sceKernelUsleep((unsigned)ms * 1000); }
 
 /* System toast. Community-documented libkernel call; struct layout is the widely used one. */
-typedef struct { char unused[45]; char message[3075]; } notify_request_t;
-extern int sceKernelSendNotificationRequest(int device, notify_request_t *req, size_t size, int blocking);
 void plat_notify(const char *msg) {
-    notify_request_t r; memset(&r, 0, sizeof r);
-    snprintf(r.message, sizeof r.message, "%s", msg);
+    OrbisNotificationRequest r;
+    memset(&r, 0, sizeof r);
+    snprintf(r.message, sizeof r.message, "%s", msg ? msg : "");
     sceKernelSendNotificationRequest(0, &r, sizeof r, 0);
 }
 
@@ -107,16 +106,38 @@ int net_init(void) {
     return net_pool < 0 ? -1 : 0;
 }
 
-static void set_timeout(int s, int opt, int ms) { int us = ms * 1000; sceNetSetsockopt(s, ORBIS_NET_SOL_SOCKET, opt, &us, sizeof us); }
+
+/* IPv4 socket address layout used by the BSD-style PS4 networking API. */
+typedef struct {
+    uint8_t len;
+    uint8_t family;
+    uint16_t port;
+    uint32_t addr;
+    char zero[8];
+} DeluxeSockaddrIn;
 
 int net_connect(const char *ip, int port, int timeout_ms) {
-    int s = sceNetSocket("deluxe", ORBIS_NET_AF_INET, ORBIS_NET_SOCK_STREAM, 0);
+    (void)timeout_ms; /* Socket timeout options are not exposed by these headers. */
+
+    int s = sceNetSocket("deluxe", ORBIS_NET_AF_INET,
+                         ORBIS_NET_SOCK_STREAM, 0);
     if (s < 0) return -1;
-    set_timeout(s, ORBIS_NET_SO_SNDTIMEO, timeout_ms);
-    OrbisNetSockaddrIn sa; memset(&sa, 0, sizeof sa);
-    sa.sin_len = sizeof sa; sa.sin_family = ORBIS_NET_AF_INET; sa.sin_port = sceNetHtons((uint16_t)port);
-    if (sceNetInetPton(ORBIS_NET_AF_INET, ip, &sa.sin_addr) != 1) { sceNetSocketClose(s); return -1; }
-    if (sceNetConnect(s, (OrbisNetSockaddr *)&sa, sizeof sa) < 0) { sceNetSocketClose(s); return -1; }
+
+    DeluxeSockaddrIn sa;
+    memset(&sa, 0, sizeof sa);
+    sa.len = sizeof sa;
+    sa.family = ORBIS_NET_AF_INET;
+    sa.port = sceNetHtons((uint16_t)port);
+
+    if (sceNetInetPton(ORBIS_NET_AF_INET, ip, &sa.addr) != 1) {
+        sceNetSocketClose(s);
+        return -1;
+    }
+
+    if (sceNetConnect(s, (OrbisNetSockaddr *)&sa, sizeof sa) < 0) {
+        sceNetSocketClose(s);
+        return -1;
+    }
     return s;
 }
 
@@ -127,11 +148,9 @@ int net_send_all(int h, const void *buf, size_t len) {
 }
 
 int net_recv(int h, void *buf, size_t len, int timeout_ms) {
-    set_timeout(h, ORBIS_NET_SO_RCVTIMEO, timeout_ms);
-    uint64_t t0 = plat_ms();
+    (void)timeout_ms;
     int n = sceNetRecv(h, buf, len, 0);
-    if (n < 0) return (plat_ms() - t0 + 50 >= (uint64_t)timeout_ms) ? NET_TIMEOUT : NET_ERR;  /* timeout vs error heuristic */
-    return n;
+    return n < 0 ? NET_ERR : n;
 }
 
 void net_close(int h) { sceNetSocketClose(h); }
