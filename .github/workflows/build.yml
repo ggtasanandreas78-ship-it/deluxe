@@ -75,6 +75,18 @@ jobs:
           echo "===== Available OpenSSL libraries ====="
           ldconfig -p | grep -E 'libssl\.so|libcrypto\.so' || true
 
+      - name: Diagnose PkgTool OpenSSL requirements
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOOL="$OO_PS4_TOOLCHAIN/bin/linux/PkgTool.Core"
+          echo "===== PkgTool file type ====="
+          file "$TOOL"
+          echo "===== PkgTool runtime dependencies ====="
+          ldd "$TOOL" || true
+          echo "===== OpenSSL libraries ====="
+          ldconfig -p | grep -E 'libssl|libcrypto' || true
+
       - name: Build + validate PKG
         run: make
       - name: Verify PKG file
