@@ -69,11 +69,12 @@ jobs:
           echo "=== create-gp4 help ==="
           "$SDK/bin/linux/create-gp4" --help || true
 
-      - name: Validate build setup
+      - name: Build PS4 PKG
+        shell: bash
         run: |
           set -euxo pipefail
           test -f src/main.c
           test -f sce_sys/icon0.png
           test -f "$OO_PS4_TOOLCHAIN/link.x"
-          echo "SDK and source files are present."
-          echo "A verified SFO/GP4 package recipe is still required before producing a PKG."
+          make OO_PS4_TOOLCHAIN="$OO_PS4_TOOLCHAIN"
+          find . -maxdepth 2 -type f -name '*.pkg' -print
