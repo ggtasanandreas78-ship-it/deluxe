@@ -12,7 +12,7 @@ FSELF := $(OO_PS4_TOOLCHAIN)/bin/linux/create-fself
 GP4 := $(OO_PS4_TOOLCHAIN)/bin/linux/create-gp4
 
 CFLAGS := --target=x86_64-scei-ps4 -fPIC -DPS4 -O2 -Wall -Wextra -fno-stack-protector -I$(OO_PS4_TOOLCHAIN)/include
-LDFLAGS := -fuse-ld=lld -Wl,-pie -Wl,--script=$(OO_PS4_TOOLCHAIN)/link.x -L$(OO_PS4_TOOLCHAIN)/lib
+LDFLAGS := -Wl,-pie -Wl,--script=$(OO_PS4_TOOLCHAIN)/link.x -L$(OO_PS4_TOOLCHAIN)/lib
 LIBS := -lkernel -lc -lSceFios2 -lSceLibcInternal
 
 .PHONY: all clean check-tools
