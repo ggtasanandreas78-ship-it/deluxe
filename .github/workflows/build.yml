@@ -65,6 +65,12 @@ jobs:
           grep -R -n -E 'SockaddrIn|Sockaddr.*In|SOL_SOCKET|SO_SNDTIMEO|SO_RCVTIMEO|OrbisNetSockaddr|OrbisNetInAddr' "$OO_PS4_TOOLCHAIN/include/orbis" | head -100 || true
           echo "===== Notification definitions ====="
           grep -R -n -E 'OrbisNotificationRequest|sceKernelSendNotificationRequest' "$OO_PS4_TOOLCHAIN/include/orbis" | head -60 || true
+          echo "===== Video output definitions ====="
+          grep -R -n -E 'sceVideoOutOpen|sceVideoOutSetBufferAttribute|sceVideoOutRegisterBuffers|sceVideoOutSubmitFlip|sceVideoOutAddFlipEvent|ORBIS_VIDEO_OUT_PIXEL_FORMAT|ORBIS_VIDEO_OUT_BUS_MAIN' "$OO_PS4_TOOLCHAIN/include/orbis" | head -120 || true
+          echo "===== Direct memory definitions ====="
+          grep -R -n -E 'sceKernelAllocateDirectMemory|sceKernelMapDirectMemory|sceKernelGetDirectMemorySize|sceKernelCreateEqueue|sceKernelWaitEqueue' "$OO_PS4_TOOLCHAIN/include/orbis" | head -100 || true
+          echo "===== Pad and user service definitions ====="
+          grep -R -n -E 'scePadOpen|scePadReadState|sceUserServiceGetInitialUser' "$OO_PS4_TOOLCHAIN/include/orbis" | head -80 || true
 
       - name: Install OpenSSL compatibility libraries
         shell: bash
