@@ -1,6 +1,6 @@
 # DELUXE PKG MANAGER - PS4 homebrew (OpenOrbis)
 #   make            build + validate the PKG   (needs OO_PS4_TOOLCHAIN, clang, ld.lld)
-#   make test       host unit/integration tests (gcc + python3 only, no PS4 toolchain)
+#   make test       host unit/integration tests (clang + python3 only, no PS4 toolchain)
 #   make clean
 TITLE      := DELUXE PKG MANAGER
 TITLE_ID   := DLXE00001

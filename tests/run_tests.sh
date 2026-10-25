@@ -9,14 +9,14 @@ head -c 300000 /dev/urandom > "$T/root/dropme.bin"
 head -c $((3*1024*1024)) /dev/urandom > "$T/local/up_src.bin"
 CFLAGS="-Wall -Wextra -Isrc -g -fsanitize=address,undefined"
 SRC="src/ftp.c src/config.c src/localfs.c src/platform_host.c src/gfx.c src/ui.c"
-gcc $CFLAGS -o "$T/test_ftp" tests/test_ftp.c src/ftp.c src/platform_host.c src/platform_common.c || exit 1
+${CC:-clang} $CFLAGS -o "$T/test_ftp" tests/test_ftp.c src/ftp.c src/platform_host.c src/platform_common.c || exit 1
 python3 tests/mock_ftp.py "$T/root" > "$T/port" & SRV=$!
 for i in $(seq 50); do grep -q PORT "$T/port" 2>/dev/null && break; sleep 0.1; done
 read -r _ FP SP < "$T/port"
 FTP_PORT=$FP SILENT_PORT=$SP LOCAL_DIR="$T/local" "$T/test_ftp"; RC=$?
 echo "=== UI tests (scripted buttons against the mock server, ASan+UBSan) ==="
 mkdir -p "$T/shots" "$T/uilocal"; cp "$T/local/up_src.bin" "$T/uilocal/"
-gcc $CFLAGS -o "$T/test_ui" tests/test_ui.c src/ftp.c src/config.c src/localfs.c src/platform_host.c src/platform_common.c src/gfx.c src/ui.c || exit 1
+${CC:-clang} $CFLAGS -o "$T/test_ui" tests/test_ui.c src/ftp.c src/config.c src/localfs.c src/platform_host.c src/platform_common.c src/gfx.c src/ui.c || exit 1
 kill $SRV 2>/dev/null; THROTTLE=3000000 python3 tests/mock_ftp.py "$T/root" > "$T/port2" & SRV=$!
 for i in $(seq 50); do grep -q PORT "$T/port2" 2>/dev/null && break; sleep 0.1; done
 read -r _ FP2 _ < "$T/port2"
