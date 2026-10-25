@@ -47,7 +47,10 @@ jobs:
           echo "=== SDK tools ==="
           ls -la "$SDK/bin/linux"
           echo "=== Packaging tool help ==="
+          export OO_PS4_TOOLCHAIN="$SDK"
           "$SDK/bin/linux/create-fself" --help || true
+          echo "=== OpenOrbis packaging README ==="
+          cat "$SDK/bin/linux/README.md"
           "$SDK/bin/linux/create-gp4" --help || true
           echo "=== SFO / GP4 tools ==="
           find "$SDK/bin/linux" -maxdepth 1 -type f -printf '%f\\n' | sort
