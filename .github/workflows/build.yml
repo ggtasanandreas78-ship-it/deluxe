@@ -38,16 +38,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/oo
-          gh release view --repo OpenOrbis/PS4Toolchain --json tagName,assets || {
-            echo "::error::Could not find a release in OpenOrbis/PS4Toolchain"
+          gh release view v0.5.4 --repo OpenOrbis/OpenOrbis-PS4-Toolchain --json tagName,assets || {
+            echo "::error::Could not find a release in OpenOrbis/OpenOrbis-PS4-Toolchain"
             exit 1
           }
-          ASSET=$(gh release view --repo OpenOrbis/PS4Toolchain --json assets --jq '.assets[].name' | grep -E 'toolchain-llvm-18.*\.tar\.gz$' | head -n 1 || true)
+          ASSET=$(gh release view v0.5.4 --repo OpenOrbis/OpenOrbis-PS4-Toolchain --json assets --jq '.assets[].name' | grep -E 'toolchain-llvm-18.*\.tar\.gz$' | head -n 1 || true)
           test -n "$ASSET" || {
             echo "::error::No toolchain-llvm-18 tar.gz asset found"
             exit 1
           }
-          gh release download --repo OpenOrbis/PS4Toolchain --pattern "$ASSET" --dir /tmp/oo
+          gh release download v0.5.4 --repo OpenOrbis/OpenOrbis-PS4-Toolchain --pattern "$ASSET" --dir /tmp/oo
           mkdir -p "$RUNNER_TEMP/OpenOrbisSDK"
           tar -xzf "/tmp/oo/$ASSET" -C "$RUNNER_TEMP/OpenOrbisSDK"
           TC=$(find "$RUNNER_TEMP/OpenOrbisSDK" -type f -name link.x -printf '%h\n' | head -n 1)
