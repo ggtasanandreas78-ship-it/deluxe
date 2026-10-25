@@ -1,4 +1,4 @@
-name: DELUXE - Diagnose OpenOrbis
+name: Build DELUXE PS4
 
 on:
   workflow_dispatch:
@@ -9,38 +9,52 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inspect project
+      - name: Install dependencies
         run: |
-          echo "=== Project files ==="
-          find . -maxdepth 3 -type f | sort
-          echo "=== Makefile ==="
-          cat Makefile
+          sudo apt-get update
+          sudo apt-get install -y clang-12 lld-12 curl tar make unzip
 
-      - name: Inspect OpenOrbis toolchain
+      - name: Download OpenOrbis release
         run: |
-          git clone --depth 1 --branch v0.5.4 \
-            https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git \
-            "$RUNNER_TEMP/OpenOrbis-PS4-Toolchain"
-          echo "=== Available build tools ==="
-          find "$RUNNER_TEMP/OpenOrbis-PS4-Toolchain" \
-            -type f \( -name 'clang' -o -name 'create-fself' \
-            -o -name 'create-gp4' -o -name 'PkgTool.Core' \) -print
-          echo "=== Toolchain README ==="
-          sed -n '1,180p' \
-            "$RUNNER_TEMP/OpenOrbis-PS4-Toolchain/README.md" || true
+          set -eux
+          mkdir -p "$RUNNER_TEMP/OpenOrbisSDK"
+          curl -fL \
+            https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.4/v0.5.4.tar.gz \
+            -o "$RUNNER_TEMP/openorbis.tar.gz"
+          tar -tzf "$RUNNER_TEMP/openorbis.tar.gz" | head -40
+          tar -xzf "$RUNNER_TEMP/openorbis.tar.gz" \
+            -C "$RUNNER_TEMP/OpenOrbisSDK"
+          echo "OO_PS4_TOOLCHAIN=$RUNNER_TEMP/OpenOrbisSDK" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/OpenOrbisSDK/bin/linux" >> "$GITHUB_PATH"
+          find "$RUNNER_TEMP/OpenOrbisSDK" -type f \
+            \( -name clang -o -name create-fself -o -name create-gp4 -o -name 'PkgTool.Core*' \) -print
 
-      - name: Save diagnostics
+      - name: Build project
+        run: |
+          set -eux
+          export PATH="$OO_PS4_TOOLCHAIN/bin/linux:$OO_PS4_TOOLCHAIN/bin:$PATH"
+          make
+
+      - name: Upload package if created
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DELUXE-PKG
+          path: "*.pkg"
+          if-no-files-found: error
+
+      - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: DELUXE-toolchain-diagnostics
+          name: DELUXE-build-logs
           path: |
-            Makefile
-            src/
-            sce_sys/
+            build/
+            pkg.gp4
+            eboot.bin
           if-no-files-found: ignore
