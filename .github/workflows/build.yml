@@ -71,6 +71,12 @@ jobs:
           grep -R -n -E 'sceKernelAllocateDirectMemory|sceKernelMapDirectMemory|sceKernelGetDirectMemorySize|sceKernelCreateEqueue|sceKernelWaitEqueue' "$OO_PS4_TOOLCHAIN/include/orbis" | head -100 || true
           echo "===== Pad and user service definitions ====="
           grep -R -n -E 'scePadOpen|scePadReadState|sceUserServiceGetInitialUser' "$OO_PS4_TOOLCHAIN/include/orbis" | head -80 || true
+          echo "===== File I/O definitions ====="
+          grep -R -n -E 'sceKernelOpen|sceKernelWrite|sceKernelClose|sceKernelGetProcessTime' "$OO_PS4_TOOLCHAIN/include/orbis" | head -80 || true
+          echo "===== Video buffer structure ====="
+          grep -R -n -B 12 -A 24 'OrbisVideoOutBufferAttribute' "$OO_PS4_TOOLCHAIN/include/orbis" | head -100 || true
+          echo "===== Direct memory constants ====="
+          grep -R -n -E 'ORBIS_KERNEL_PROT|ORBIS_KERNEL_MAP|ORBIS_KERNEL_MEMORY_TYPE' "$OO_PS4_TOOLCHAIN/include/orbis" | head -80 || true
 
       - name: Install OpenSSL compatibility libraries
         shell: bash
