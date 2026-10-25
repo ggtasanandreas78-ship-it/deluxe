@@ -20,19 +20,25 @@ jobs:
           sudo apt-get install -y clang-12 lld-12 curl tar make unzip
 
       - name: Download OpenOrbis release
+        shell: bash
         run: |
           set -eux
-          API=https://api.github.com/repos/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/latest
+          API="https://api.github.com/repos/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/latest"
           URL=$(curl -fsSL "$API" | jq -r '.assets[] | select(.name == "toolchain-llvm-18.tar.gz") | .browser_download_url')
           test -n "$URL"
           curl -fL "$URL" -o "$RUNNER_TEMP/openorbis.tar.gz"
           mkdir -p "$RUNNER_TEMP/OpenOrbisSDK"
-          tar -tzf "$RUNNER_TEMP/openorbis.tar.gz" | head -40
           tar -xzf "$RUNNER_TEMP/openorbis.tar.gz" -C "$RUNNER_TEMP/OpenOrbisSDK"
-          echo "=== Toolchain executables ==="
-          find "$RUNNER_TEMP/OpenOrbisSDK" -type f \\
-            \( -name clang -o -name create-fself -o -name create-gp4 -o -name 'PkgTool.Core*' \) -print
-          echo "OO_PS4_TOOLCHAIN=$RUNNER_TEMP/OpenOrbisSDK" >> "$GITHUB_ENV"
+          SDK="$RUNNER_TEMP/OpenOrbisSDK/OpenOrbis/PS4Toolchain"
+          test -x "$SDK/bin/linux/create-fself"
+          test -x "$SDK/bin/linux/create-gp4"
+          test -f "$SDK/bin/linux/PkgTool.Core"
+          chmod +x "$SDK/bin/linux/"*
+          echo "OO_PS4_TOOLCHAIN=$SDK" >> "$GITHUB_ENV"
+          echo "=== OpenOrbis tools ==="
+          ls -lah "$SDK/bin/linux"
+          echo "=== SDK folders ==="
+          ls -ld "$SDK/include" "$SDK/lib"
 
       - name: Build project
         run: |
