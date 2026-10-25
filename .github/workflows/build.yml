@@ -35,6 +35,11 @@ jobs:
           test -f "$SDK/bin/linux/PkgTool.Core"
           chmod +x "$SDK/bin/linux/"*
           echo "OO_PS4_TOOLCHAIN=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/bin/linux" >> "$GITHUB_PATH"
+          echo "=== Find clang in SDK archive ==="
+          find "$RUNNER_TEMP/OpenOrbisSDK" -type f -name clang -print
+          echo "=== System clang ==="
+          command -v clang || true
           echo "=== OpenOrbis tools ==="
           ls -lah "$SDK/bin/linux"
           echo "=== SDK folders ==="
