@@ -17,7 +17,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl tar make unzip jq
+          sudo apt-get install -y curl tar make unzip jq libtinfo5
           
       - name: Install LLVM 18
         uses: KyleMayes/install-llvm-action@v2
