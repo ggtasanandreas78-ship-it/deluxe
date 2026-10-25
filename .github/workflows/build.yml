@@ -1,97 +1,67 @@
-name: Build DELUXE PS4
+name: Build PKG
 
 on:
-  workflow_dispatch:
   push:
-    branches: [main, master]
-
-permissions:
-  contents: read
+  pull_request:
+  workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-22.04
+  host-tests:
+    name: Host tests (FTP client + UI, ASan/UBSan)
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y curl tar make unzip jq libtinfo5
-          
-      - name: Install LLVM 18
-        uses: KyleMayes/install-llvm-action@v2
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y gcc make python3 python3-pil
+      - name: Run tests
+        run: SHOT_OUT=screenshots make test
+      - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          version: "18"
-          directory: ${{ runner.temp }}/llvm
+          name: ui-screenshots
+          path: screenshots/
+          if-no-files-found: ignore
 
-      - name: Download OpenOrbis SDK
-        shell: bash
+  build-pkg:
+    name: Build PS4 PKG (OpenOrbis)
+    needs: host-tests
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: "1"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install clang/lld
+        run: sudo apt-get update && sudo apt-get install -y clang lld make unzip
+      - name: Download OpenOrbis toolchain (latest release)
         run: |
-          set -euxo pipefail
-          API="https://api.github.com/repos/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/latest"
-          URL=$(curl -fsSL "$API" | jq -r '.assets[] | select(.name == "toolchain-llvm-18.tar.gz") | .browser_download_url')
-          test -n "$URL"
-          mkdir -p "$RUNNER_TEMP/OpenOrbisSDK"
-          curl -fL "$URL" -o "$RUNNER_TEMP/openorbis.tar.gz"
-          tar -xzf "$RUNNER_TEMP/openorbis.tar.gz" -C "$RUNNER_TEMP/OpenOrbisSDK"
-          SDK="$RUNNER_TEMP/OpenOrbisSDK/OpenOrbis/PS4Toolchain"
-          test -f "$SDK/link.x"
-          test -d "$SDK/include"
-          test -d "$SDK/lib"
-          echo "OO_PS4_TOOLCHAIN=$SDK" >> "$GITHUB_ENV"
-          echo "$SDK/bin/linux" >> "$GITHUB_PATH"
-          echo "=== LLVM ==="
-          clang --version
-          ld.lld --version
-          echo "=== SDK tools ==="
-          ls -la "$SDK/bin/linux"
-          echo "=== Packaging tool help ==="
-          export OO_PS4_TOOLCHAIN="$SDK"
-          "$SDK/bin/linux/create-fself" --help || true
-          echo "=== OpenOrbis packaging README ==="
-          cat "$SDK/bin/linux/README.md"
-          "$SDK/bin/linux/create-gp4" --help || true
-          echo "=== SFO / GP4 tools ==="
-          find "$SDK/bin/linux" -maxdepth 1 -type f -printf '%f\\n' | sort
-
-      - name: Inspect working SDK examples
-        shell: bash
+          set -e
+          gh release view --repo OpenOrbis/OpenOrbis-PS4-Toolchain --json tagName,assets \
+            --jq '.tagName, (.assets[].name)'
+          # pick the first non-Windows/macOS archive; adjust the pattern if the asset names change
+          ASSET=$(gh release view --repo OpenOrbis/OpenOrbis-PS4-Toolchain --json assets \
+            --jq '[.assets[].name | select(test("(?i)(tar\\.gz|tgz|zip)$")) | select(test("(?i)win|mac|osx|docker")|not)][0]')
+          test -n "$ASSET" && test "$ASSET" != "null" || { echo "::error::no suitable toolchain asset found (see list above)"; exit 1; }
+          echo "Using asset: $ASSET"
+          gh release download --repo OpenOrbis/OpenOrbis-PS4-Toolchain --pattern "$ASSET" --dir /tmp/oo
+          mkdir -p "$HOME/OpenOrbis" && cd "$HOME/OpenOrbis"
+          case "$ASSET" in *.zip) unzip -q "/tmp/oo/$ASSET" ;; *) tar -xzf "/tmp/oo/$ASSET" ;; esac
+          TC=$(dirname "$(find "$HOME/OpenOrbis" -name link.x -path '*' | head -n1)")
+          TC=$(dirname "$TC")
+          echo "OO_PS4_TOOLCHAIN=$TC" >> "$GITHUB_ENV"
+          chmod +x "$TC"/bin/linux/* || true
+          ls "$TC" "$TC/bin/linux"
+      - name: Build + validate PKG
+        run: make
+      - name: Verify PKG file
         run: |
-          set -eu
-          SDK="$OO_PS4_TOOLCHAIN"
-          echo "=== GP4 examples ==="
-          find "$SDK/samples" -name 'pkg.gp4' -print
-          echo "=== SFO examples ==="
-          find "$SDK/samples" -path '*/sce_sys/param.sfo' -print
-          echo "=== PkgTool help ==="
-          "$SDK/bin/linux/PkgTool.Core" --help || true
-          echo "=== create-gp4 help ==="
-          "$SDK/bin/linux/create-gp4" --help || true
-
-      - name: Inspect PS4 linker files
-        shell: bash
-        run: |
-          set -euxo pipefail
-          find "$OO_PS4_TOOLCHAIN" -maxdepth 4 -type f \
-            \( -name 'crtlib.o' -o -name 'crt*.o' -o -name 'link.x' -o -name '*start*.o' \) \
-            -print
-          grep -R -n 'crtlib.o\\|crt2.o\\|Scrt1.o' "$OO_PS4_TOOLCHAIN/samples" --include='Makefile' --include='*.mk' 2>/dev/null || true
-
-      - name: Build PS4 PKG
-        shell: bash
-        run: |
-          set -euxo pipefail
-          test -f src/main.c
-          test -f sce_sys/icon0.png
-          test -f "$OO_PS4_TOOLCHAIN/link.x"
-          make OO_PS4_TOOLCHAIN="$OO_PS4_TOOLCHAIN"
-          find . -maxdepth 2 -type f -name '*.pkg' -print
-
-      - name: Upload PS4 PKG
-        uses: actions/upload-artifact@v4
+          set -e
+          PKG=$(ls IV0000-*.pkg)
+          ls -l "$PKG"
+          test "$(head -c4 "$PKG" | xxd -p)" = "7f434e54" || { echo "::error::bad PKG magic"; exit 1; }
+          echo "PKG magic OK"
+      - uses: actions/upload-artifact@v4
         with:
-          name: DELUXE-PKG-MANAGER
-          path: IV0000-DLXE00001_00-DELUXEPKGMANAGER.pkg
+          name: DELUXE-PKG-MANAGER-pkg
+          path: IV0000-*.pkg
           if-no-files-found: error
-          retention-days: 7
