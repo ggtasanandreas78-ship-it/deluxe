@@ -66,6 +66,15 @@ jobs:
           echo "===== Notification definitions ====="
           grep -R -n -E 'OrbisNotificationRequest|sceKernelSendNotificationRequest' "$OO_PS4_TOOLCHAIN/include/orbis" | head -60 || true
 
+      - name: Install OpenSSL compatibility libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y libssl3 libssl-dev
+          echo "===== Available OpenSSL libraries ====="
+          ldconfig -p | grep -E 'libssl\.so|libcrypto\.so' || true
+
       - name: Build + validate PKG
         run: make
       - name: Verify PKG file
