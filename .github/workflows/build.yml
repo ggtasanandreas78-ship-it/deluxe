@@ -25,7 +25,7 @@ jobs:
   build-pkg:
     name: Build PS4 PKG (OpenOrbis)
     needs: host-tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: "1"
       GH_TOKEN: ${{ github.token }}
