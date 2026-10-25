@@ -33,24 +33,28 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install clang/lld
         run: sudo apt-get update && sudo apt-get install -y clang lld make unzip
-      - name: Download OpenOrbis toolchain (latest release)
+      - name: Download OpenOrbis toolchain
+        shell: bash
         run: |
-          set -e
-          gh release view --repo OpenOrbis/PS4Toolchain-PS4-Toolchain --json tagName,assets \
-            --jq '.tagName, (.assets[].name)'
-          # pick the first non-Windows/macOS archive; adjust the pattern if the asset names change
-          ASSET=$(gh release view --repo OpenOrbis/PS4Toolchain-PS4-Toolchain --json assets \
-            --jq '[.assets[].name | select(test("(?i)(tar\\.gz|tgz|zip)$")) | select(test("(?i)win|mac|osx|docker")|not)][0]')
-          test -n "$ASSET" && test "$ASSET" != "null" || { echo "::error::no suitable toolchain asset found (see list above)"; exit 1; }
-          echo "Using asset: $ASSET"
-          gh release download --repo OpenOrbis/PS4Toolchain-PS4-Toolchain --pattern "$ASSET" --dir /tmp/oo
-          mkdir -p "$HOME/OpenOrbis" && cd "$HOME/OpenOrbis"
-          case "$ASSET" in *.zip) unzip -q "/tmp/oo/$ASSET" ;; *) tar -xzf "/tmp/oo/$ASSET" ;; esac
-          TC=$(dirname "$(find "$HOME/OpenOrbis" -name link.x -path '*' | head -n1)")
-          TC=$(dirname "$TC")
+          set -euo pipefail
+          mkdir -p /tmp/oo
+          gh release view --repo OpenOrbis/PS4Toolchain --json tagName,assets || {
+            echo "::error::Could not find a release in OpenOrbis/PS4Toolchain"
+            exit 1
+          }
+          ASSET=$(gh release view --repo OpenOrbis/PS4Toolchain --json assets --jq '.assets[].name' | grep -E 'toolchain-llvm-18.*\.tar\.gz$' | head -n 1 || true)
+          test -n "$ASSET" || {
+            echo "::error::No toolchain-llvm-18 tar.gz asset found"
+            exit 1
+          }
+          gh release download --repo OpenOrbis/PS4Toolchain --pattern "$ASSET" --dir /tmp/oo
+          mkdir -p "$RUNNER_TEMP/OpenOrbisSDK"
+          tar -xzf "/tmp/oo/$ASSET" -C "$RUNNER_TEMP/OpenOrbisSDK"
+          TC=$(find "$RUNNER_TEMP/OpenOrbisSDK" -type f -name link.x -printf '%h\n' | head -n 1)
+          test -n "$TC" || { echo "::error::Could not locate PS4Toolchain (link.x missing)"; find "$RUNNER_TEMP/OpenOrbisSDK" -maxdepth 4 -type d; exit 1; }
           echo "OO_PS4_TOOLCHAIN=$TC" >> "$GITHUB_ENV"
-          chmod +x "$TC"/bin/linux/* || true
-          ls "$TC" "$TC/bin/linux"
+          echo "Using toolchain: $TC"
+
       - name: Build + validate PKG
         run: make
       - name: Verify PKG file
