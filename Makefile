@@ -8,7 +8,7 @@ TARGET      := $(CONTENT_ID).pkg
 OO_PS4_TOOLCHAIN ?= $(shell printenv OO_PS4_TOOLCHAIN)
 CC := /usr/bin/clang-12
 CFLAGS := -O2 -Wall -Wextra -fPIC -funwind-tables -fno-stack-protector -I$(OO_PS4_TOOLCHAIN)/include
-LDFLAGS := -Wl,-pie -Wl,--eh-frame-hdr -L$(OO_PS4_TOOLCHAIN)/lib
+LDFLAGS := -fuse-ld=lld-12 -Wl,-pie -Wl,--eh-frame-hdr -L$(OO_PS4_TOOLCHAIN)/lib
 LIBS := -lkernel -lc -lSceFios2 -lSceLibcInternal -lc++
 
 BUILD := build
